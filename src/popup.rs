@@ -673,6 +673,16 @@ mod tests {
     }
 
     #[test]
+    fn default_popup_uses_the_terminal_background_for_unselected_rows() {
+        let ui = Ui { icons: "none".into(), ..Ui::default() };
+        let entries = items(2);
+        let layout = layout(&ui, &entries, (24, 80), (2, 10), 0).unwrap();
+        let rows = render(&ui, &layout, &entries, 0, 0);
+        assert!(rows.iter().any(|row| row.contains("\x1b[0;49;39m") && row.contains(&entries[1].label)));
+        assert!(rows.iter().any(|row| row.contains("\x1b[0;48;5;24;") && row.contains(&entries[0].label)));
+    }
+
+    #[test]
     fn every_theme_resolves() {
         for name in crate::theme::NAMES {
             let ui = Ui { theme: name.to_string(), ..Ui::default() };

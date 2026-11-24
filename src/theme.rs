@@ -122,8 +122,8 @@ fn preset(name: &str) -> Palette {
             info_fg: "8",
         },
         _ => Palette {
-            bg: "235",
-            fg: "252",
+            bg: "default",
+            fg: "default",
             selected_bg: "24",
             selected_fg: "231",
             description_fg: "244",

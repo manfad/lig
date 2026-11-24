@@ -205,7 +205,7 @@ pub struct Behavior {
     /// (`gco` → `git-checkout`, `top` → `btop`).
     pub fuzzy: bool,
     /// When Enter picks the selected suggestion instead of running the line:
-    /// `"run"` runs the typed line, with exceptions in `enter_runs_commands`.
+    /// `"run"` picks and runs the highlighted suggestion.
     /// `"never"` always runs the typed line, `"auto"` picks unless the word is complete,
     /// `"after-space"` picks after a space, and `"always"` picks while the popup is open.
     /// In the Up-arrow history dropdown, Enter runs the highlighted command.

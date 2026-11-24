@@ -248,16 +248,16 @@ Type as usual; the popup shows what fits.
 | `Tab` / `↓` | next suggestion |
 | `Shift-Tab` / `↑` | previous suggestion (on the first one: close the popup) |
 | `→` | insert the highlighted suggestion |
-| `Enter` | run the prompt, or run the highlighted command in Up-arrow history |
+| `Enter` | accept and run the highlighted suggestion, or run the prompt when the popup is closed |
 | `Shift+Enter` | accept the suggestion and run the line |
 | `Esc` | close the popup |
 | `Ctrl+Space` | open or close the popup on demand |
 | `Ctrl+R` | your history: past commands matching what's typed |
 | `Alt+R` | your history in this folder |
 
-- **Right** inserts the highlighted completion. **Enter** runs the command on the prompt.
-  **Shift+Enter** inserts the completion and runs it when the terminal reports that key
-  separately. Use `accept_and_run = ["alt-enter"]` to bind Alt+Enter instead.
+- **Right** inserts the highlighted completion for editing. **Enter** accepts and runs
+  it in one step. For example, type `cd de` and press Enter with `dev/` highlighted
+  to change into that directory.
 - **Command names** don't pop up by themselves, so simple commands run with one `Enter`.
   `Ctrl+Space` shows them; `complete_commands = true` always does.
 - **Folders** (`cd`, `mkdir`…) keep the popup open with the subfolders, with **↵ Enter** to

@@ -614,8 +614,8 @@ fn enter_action(
     navigated: bool,
     just_accepted: bool,
 ) -> Enter {
-    if mode == "run" && !runs {
-        return Enter::Run;
+    if mode == "run" {
+        return if just_accepted && !navigated { Enter::Run } else { Enter::PickAndRun };
     }
     // `always`: Enter on a complete word only closes the popup.
     if mode == "always" && !navigated && complete {
@@ -2202,7 +2202,6 @@ impl Session {
 
     /// Insert the selected suggestion; with `run`, run the line after it (`enter_runs_commands`).
     fn accept_selected(&mut self, fwd: &mut Vec<u8>, run: bool) {
-        let from_up = self.history_mode && self.history_from_up;
         self.history_mode = false;
         let s = &self.items[self.selected];
         if s.kind == Kind::Execute {
@@ -2219,7 +2218,7 @@ impl Session {
             self.close_after_insert =
                 !(result.is_empty() || result.ends_with(|c: char| c.is_whitespace() || crate::engine::is_sep(c)));
             // Shells that can reject a stale insertion report the resulting line before Enter.
-            let confirm = run && (self.fish_shell || (from_up && self.zsh_shell));
+            let confirm = run && (self.fish_shell || self.zsh_shell);
             if confirm {
                 let left = result.chars().count().saturating_sub(s.back);
                 self.run_after_insert = Some(result.chars().take(left).collect());

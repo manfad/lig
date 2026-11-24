@@ -25,7 +25,6 @@ class ShellSmoke(unittest.TestCase):
                 start = len(term.output)
                 term.send(f'{command} {prefix}')
                 term.wait_popup(operand, start)
-                term.send(b'\x1b[C')
                 term.send(b'\r')
                 if command == 'cd':
                     term.send('pwd > "$HOME/cwd"\r')
@@ -101,7 +100,8 @@ class ShellSmoke(unittest.TestCase):
             self.assertEqual(term.close(17), 17)
 
     def smoke(self, shell, extra=''):
-        term = Fish(wrapped=True, shell=shell, extra_config=extra)
+        term = Fish(wrapped=True, shell=shell, extra_config=extra,
+                    after_config='mkdir -p "$HOME/dev"\ncd "$HOME"\n')
         try:
             start = len(term.output)
             term.send('git ch')
@@ -113,10 +113,13 @@ class ShellSmoke(unittest.TestCase):
             self.assertEqual(term.buffer(), 'git cherry-pick')
             term.send(b'\x03')
             start = len(term.output)
-            term.send('git ch')
-            term.wait_popup('checkout', start)
+            term.send('cd de')
+            term.wait_popup('dev/', start)
             term.send(b'\r')
-            term.wait_text('is not a git command', start)
+            path = term.home / 'cwd'
+            term.send('pwd > "$HOME/cwd"\r')
+            term.wait_for(path.exists)
+            self.assertEqual(path.read_text().strip(), str(term.home / 'dev'))
             self.assertIn(b'REGRESSION_OK', term.send(b'echo REGRESSION_OK\r'))
         finally:
             self.assertEqual(term.close(17), 17)

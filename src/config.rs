@@ -244,6 +244,10 @@ pub struct Behavior {
     /// histories), for `keys.history` to show. Off: nothing is kept, and the history key goes
     /// to the shell.
     pub history: bool,
+    /// Open the history popup on Up at an empty prompt.
+    pub history_on_up: bool,
+    /// Prefer recent Atuin history for the empty-prompt Up popup.
+    pub history_atuin: bool,
     /// Keep only the commands that ran without error (exit status 0) in `history`.
     pub history_success_only: bool,
     /// Kill generator commands after this many milliseconds.
@@ -334,6 +338,8 @@ impl Default for Behavior {
             complete_commands: false,
             online: true,
             history: true,
+            history_on_up: true,
+            history_atuin: true,
             history_success_only: false,
             generator_timeout_ms: 5000,
             generator_cache_ms: 5000,

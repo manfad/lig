@@ -13,7 +13,7 @@ from fish_pty import BIN
 
 SHELLS = {
     'zsh': os.environ.get('LIG_TEST_ZSH') or shutil.which('zsh'),
-    'bash': shutil.which('bash'),
+    'bash': os.environ.get('LIG_TEST_BASH') or shutil.which('bash'),
     'fish': shutil.which('fish'),
     'nu': os.environ.get('LIG_TEST_NU') or shutil.which('nu'),
 }
@@ -28,7 +28,7 @@ PROMPTS = {
 
 @unittest.skipUnless(shutil.which('tmux'), 'tmux is required')
 class HistoryTmux(unittest.TestCase):
-    def start(self, kind, config=''):
+    def start(self, kind, config='', atuin_history=None, extra_rc=''):
         shell = SHELLS[kind]
         if not shell:
             self.skipTest(f'{kind} is unavailable')
@@ -48,7 +48,18 @@ class HistoryTmux(unittest.TestCase):
         rc = {'zsh': home / '.zshrc', 'bash': home / '.bashrc', 'fish': home / '.config/fish/config.fish',
               'nu': home / '.config/nushell/config.nu'}[kind]
         rc.parent.mkdir(parents=True, exist_ok=True)
-        rc.write_text(PROMPTS[kind])
+        if atuin_history is not None:
+            atuin = shutil.which('atuin')
+            if atuin is None:
+                self.skipTest('Atuin is unavailable')
+            env['ATUIN_CONFIG_DIR'] = str(home / '.atuin-config')
+            env['ATUIN_DB_PATH'] = str(home / 'atuin-history.db')
+            fixture = home / 'atuin-import'
+            fixture.write_text(atuin_history)
+            subprocess.run([atuin, 'import', 'zsh'], env=dict(os.environ, **(env | {'HISTFILE': str(fixture)})),
+                           check=True, capture_output=True)
+            extra_rc += f'eval "$(atuin init {kind} --disable-up-arrow)"\n'
+        rc.write_text(PROMPTS[kind] + extra_rc)
         if config:
             (home / '.config/lig').mkdir(parents=True, exist_ok=True)
             (home / '.config/lig/config.toml').write_text(config)
@@ -146,6 +157,49 @@ class HistoryTmux(unittest.TestCase):
                 self.wait('no full history', lambda s: 'echo in-fa' in entries() and 'echo in-fb' in entries())
                 self.assertNotIn('local', entries())
                 self.doCleanups()
+
+    def check_up_atuin(self, kind):
+        self.start(kind, atuin_history=(
+            ': 1700000001:0;printf atuin-older\n'
+            ': 1700000002:0;printf atuin-newer\n'
+            ': 1700000003:0;printf unrelated-history\n'
+        ))
+        self.tmux('send-keys', '-t', 'test:0.0', 'Up')
+        self.wait('no Atuin popup', lambda s: 'atuin-older' in s and 'atuin-newer' in s)
+        screen = self.screen()
+        self.assertNotIn('imported-from-zsh', screen)
+        self.assertLess(screen.index('atuin-newer'), screen.index('atuin-older'))
+        self.assertIn('unrelated-history', screen)
+        self.tmux('send-keys', '-t', 'test:0.0', '-l', 'atuin-')
+        self.wait('Atuin popup did not filter', lambda s: 'printf atuin-older' in s and 'unrelated-history' not in s)
+        self.tmux('send-keys', '-t', 'test:0.0', 'Down', 'Enter')
+        self.wait('history selection was not inserted', lambda s: 'hist-test> printf atuin-older' in s and '↺' not in s)
+        self.assertNotIn('\natuin-older', self.screen())
+
+    def test_zsh_up_uses_atuin(self):
+        self.check_up_atuin('zsh')
+
+    def test_bash_up_uses_atuin(self):
+        self.check_up_atuin('bash')
+
+    def test_up_falls_back_to_lig_history(self):
+        self.start('zsh', '[behavior]\nhistory_atuin = false\n')
+        self.tmux('send-keys', '-t', 'test:0.0', 'Up')
+        self.wait('no Lig history popup', lambda s: '↺' in s and 'imported-from-zsh' in s)
+
+    def check_nonempty_up(self, kind, expected, extra_rc=''):
+        self.start(kind, extra_rc=extra_rc)
+        self.tmux('send-keys', '-t', 'test:0.0', '-l', 'echo')
+        self.wait('no typed command', lambda s: 'hist-test> echo' in s)
+        self.tmux('send-keys', '-t', 'test:0.0', 'Up')
+        self.wait('Up did not reach shell', lambda s: f'hist-test> {expected}' in s)
+
+    def test_nonempty_up_reaches_zsh(self):
+        self.check_nonempty_up('zsh', 'echo imported-from-zsh')
+
+    def test_nonempty_up_reaches_bash(self):
+        self.check_nonempty_up('bash', 'echo shell-received-up',
+                               'history -s "echo shell-received-up"\n')
 
     def test_off_leaves_ctrl_r_to_the_shell(self):
         self.start('bash', '[behavior]\nhistory = false\n')

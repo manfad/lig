@@ -40,6 +40,28 @@ itself.
   **`lig mosh`** (zsh, bash, fish or nushell there, nothing installed).
 - Themes, Nerd Font icons, any keys. Runs locally: no daemon, no account, no telemetry.
 
+## Up-arrow history with Atuin
+
+Press **Up** at an empty prompt inside Lig to browse recent Atuin history in Lig's inline
+popup. Type to filter, use **Up** and **Down** to move, and press **Enter** to put the
+selection on the prompt for editing. **Esc** closes the popup.
+
+Install this branch with `cargo install --path . --locked`, then run `lig install zsh`
+or `lig install bash` and open a new session. Bash requires version 4.4 or newer.
+
+Keep Atuin initialized in your shell so it can record new commands. To have your
+shell's native Up binding on a nonempty prompt, use the corresponding line in
+`~/.zshrc` or `~/.bashrc` (replace your existing Atuin init line if you have one).
+
+| Shell | Atuin initialization |
+| --- | --- |
+| Zsh | `eval "$(atuin init zsh --disable-up-arrow)"` |
+| Bash | `eval "$(atuin init bash --disable-up-arrow)"` |
+
+The dropdown reads up to 500 recent commands from the local Atuin database, including
+any already synced to it. If Atuin is unavailable or has no entries, the dropdown uses
+Lig's own history. `Ctrl+R` and `Alt+R` still open Lig's own history.
+
 ## Try it in Docker
 
 See Lig before installing it: the demo image opens a shell in a small git project, with
@@ -250,9 +272,9 @@ Type as usual; the popup shows what fits.
   starts with what zsh, bash, fish and nu remember; in `lig ssh` and `lig mosh` it's the
   server's history instead. A command typed with a leading space isn't kept;
   `history_success_only = true` keeps only those that ran without error, and
-  `history = false` keeps nothing and leaves `Ctrl+R` to the shell.
-- **Your shell's own keys stay yours**: history with the arrows, `Tab` once the popup is
-  closed, fzf's `Ctrl+T`. Typing brings the popup back.
+  `history = false` keeps nothing and returns the history keys to the shell.
+- **Shell keys**: with the popup closed, Lig passes through `Tab` and the arrows on a
+  nonempty prompt. Set `history_on_up = false` to pass Up through on an empty prompt too.
 
 ## Configuration
 
@@ -283,7 +305,9 @@ show_hidden_files = false  # list dot files without typing a dot first
 hide_variable_values = []  # also mask these $VARS' values: ["GH_*", "*_URL"], "*" for all
                            # (names with TOKEN, KEY, PASS, SECRET, PAT, PWD… always are)
 online = true              # search package registries as you type
-history = true             # keep the commands that ran, for Ctrl+R
+history = true             # enable Lig history
+history_on_up = true       # show history on Up at an empty prompt
+history_atuin = true       # prefer Atuin for the Up popup
 history_success_only = false  # keep only those that ran without error
 completers = []            # for commands with no spec: ["shell", "argc"], see below
 disabled_commands = []     # never show the popup for these

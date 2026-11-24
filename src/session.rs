@@ -434,6 +434,7 @@ pub fn run(shell: PathBuf, login: bool) -> Result<i32> {
         shell_asked: None,
         history: cfg.behavior.history.then(crate::history::History::open),
         history_mode: false,
+        atuin_history: None,
         history_folder: false,
         run_after_insert: None,
         cfg,
@@ -831,6 +832,8 @@ struct Session {
     /// The commands that ran (`behavior.history`), and whether the popup shows them now.
     history: Option<crate::history::History>,
     history_mode: bool,
+    /// The Atuin results loaded when Up opened the popup, reused while typing a filter.
+    atuin_history: Option<Vec<(u64, String)>>,
     /// The history popup lists only what ran in the shell's folder (`keys.folder_history`).
     history_folder: bool,
     /// An accept-and-run waits for the shell to show this line (left of the cursor) before
@@ -1054,6 +1057,9 @@ impl Session {
                     }
                 }
                 Event::Done { line, items, loading, command, ask_shell } => {
+                    if self.history_mode {
+                        continue;
+                    }
                     if let Some(asked) = ask_shell {
                         self.ask_shell(asked);
                     }
@@ -1789,9 +1795,30 @@ impl Session {
             }
             let history_key = matches!(self.bindings.action(&key), Some(Action::History | Action::FolderHistory));
             if history_key && self.history.is_some() && self.can_show() {
-                self.toggle_history(self.bindings.action(&key) == Some(Action::FolderHistory));
+                self.toggle_history(self.bindings.action(&key) == Some(Action::FolderHistory), None);
                 redraw = true;
                 continue;
+            }
+            if key == Key::UP
+                && self.cfg.behavior.history_on_up
+                && self.history.is_some()
+                && self.can_show()
+                && !self.history_mode
+                && !self.popup_open()
+                && self.line.is_empty()
+                && self.unconfirmed().is_empty()
+                && !self.fish_stale()
+            {
+                let atuin = if self.cfg.behavior.history_atuin && self.remote.is_none() {
+                    crate::history::atuin(&self.env, self.cfg.behavior.history_success_only)
+                } else {
+                    None
+                };
+                self.toggle_history(false, atuin);
+                redraw = true;
+                if self.history_mode {
+                    continue;
+                }
             }
             if self.bindings.action(&key) == Some(Action::Toggle) && self.can_show() {
                 self.toggle();
@@ -1847,7 +1874,7 @@ impl Session {
                     redraw = true;
                 }
                 Some(Action::Prev) if self.selected == 0 => {
-                    // Up from the first item closes the popup; the next Up goes to shell history.
+                    // Up from the first item closes the popup.
                     self.dismiss();
                     redraw = true;
                 }
@@ -2039,8 +2066,9 @@ impl Session {
 
     /// Show the commands that ran before, or leave them for the usual suggestions.
     /// Open the history (all of it, or this folder's), switch between the two, or close it.
-    fn toggle_history(&mut self, folder: bool) {
-        self.history_mode = !(self.history_mode && self.history_folder == folder);
+    fn toggle_history(&mut self, folder: bool, atuin: Option<Vec<(u64, String)>>) {
+        self.history_mode = !(self.history_mode && self.history_folder == folder && self.atuin_history.is_none());
+        self.atuin_history = atuin;
         self.history_folder = folder;
         self.manual = self.history_mode;
         self.shell_nav = false;
@@ -2103,7 +2131,10 @@ impl Session {
                 }
                 found
             }
-            None => history.search(&self.line, fuzzy, dir.as_deref()),
+            None => match &self.atuin_history {
+                Some(entries) => crate::history::matching(entries, &self.line, fuzzy),
+                None => history.search(&self.line, fuzzy, dir.as_deref()),
+            },
         };
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
         let delete = self.line.chars().count();

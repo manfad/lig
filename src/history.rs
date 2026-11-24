@@ -131,6 +131,39 @@ impl History {
     }
 }
 
+/// Read a bounded, newest-first snapshot for the Up popup. NUL framing preserves multiline commands.
+pub fn atuin(env: &crate::engine::ShellEnv, success_only: bool) -> Option<Vec<(u64, String)>> {
+    let mut args: Vec<String> =
+        ["atuin", "search", "--filter-mode", "global", "--limit", "500", "--cmd-only", "--print0"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+    if success_only {
+        args.extend(["--exit".into(), "0".into()]);
+    }
+    args.extend(["--".into(), String::new()]);
+    let output = crate::exec::run(
+        crate::exec::Cmd::Argv(&args),
+        &env.cwd,
+        &env.vars,
+        std::time::Duration::from_millis(150),
+        None,
+    );
+    if output.status != 0 || !output.stdout.ends_with('\0') {
+        return None;
+    }
+    let mut seen = std::collections::HashSet::new();
+    let entries: Vec<_> = output
+        .stdout
+        .split_terminator('\0')
+        // Atuin selects the newest matches but prints them oldest first.
+        .rev()
+        .filter(|command| !command.is_empty() && seen.insert(*command))
+        .map(|command| (0, command.to_owned()))
+        .collect();
+    (!entries.is_empty()).then_some(entries)
+}
+
 /// What a `lig ssh` host remembers: the commands run on it in this session, then its zsh and
 /// bash history files. In memory only: the host's history is its shells' to keep.
 #[derive(Default)]
@@ -181,7 +214,7 @@ impl HostHistory {
 
 /// The commands in `entries` (newest first) matching `query`, newest first: those starting
 /// with it, then those containing it, then (with `fuzzy`) those with its letters in order.
-fn matching(entries: &[(u64, String)], query: &str, fuzzy: bool) -> Vec<(u64, String)> {
+pub(crate) fn matching(entries: &[(u64, String)], query: &str, fuzzy: bool) -> Vec<(u64, String)> {
     let query = query.trim_start().to_lowercase();
     let mut tiers: [Vec<(u64, String)>; 3] = Default::default();
     for (time, command) in entries {

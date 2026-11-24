@@ -42,6 +42,8 @@ itself.
 
 ## Up-arrow history with Atuin
 
+**Promptdrop** is this fork's IDE-style terminal dropdown.
+
 Press **Up** at an empty prompt inside Lig to browse recent Atuin history in Lig's inline
 popup. Type to filter, use **Up** and **Down** to move, and press **Enter** to put the
 selection on the prompt for editing. **Esc** closes the popup.

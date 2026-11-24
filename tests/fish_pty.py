@@ -363,7 +363,7 @@ end
             term.send('git ch')
             term.wait_popup('checkout', start)
             term.send(b'\t')
-            term.send(b'\r')
+            term.send(b'\x1b[C')
             self.assertEqual(term.buffer(), 'git cherry-pick')
             term.clear()
             # Back at zsh's prompt once the nested fish (and its lig) are gone.
@@ -374,7 +374,7 @@ end
             term.close()
 
     def test_fast_enter_uses_the_updated_buffer(self):
-        fish = Fish(wrapped=True)
+        fish = Fish(wrapped=True, lig_config='[behavior]\nenter_accepts = "auto"\n')
         try:
             for _ in range(8):
                 fish.clear()
@@ -399,7 +399,7 @@ end
                 start = len(fish.output)
                 fish.send(prefix)
                 fish.wait_popup(expected.split()[-1], start)
-                fish.send(b'\r')
+                fish.send(b'\x1b[C')
                 fish.assert_buffer(expected)
         finally:
             fish.close()
@@ -430,7 +430,7 @@ end
             start = len(fish.output)
             fish.send('cargo build --rel')
             fish.wait_popup('--release', start)
-            fish.send(b'\r')
+            fish.send(b'\x1b[C')
             self.assertEqual(fish.buffer(), 'cargo build --release')
             fish.clear()
             target = fish.home / 'space file'
@@ -439,7 +439,7 @@ end
             fish.send(f'cat {fish.home}/spa tail')
             fish.send(b'\x1b[D' * 5)
             fish.wait_popup('space file', start)
-            fish.send(b'\r')
+            fish.send(b'\x1b[C')
             buffer = fish.buffer()
             self.assertTrue(buffer.endswith(' tail'), buffer)
             # Let fish parse the arguments without running cat.
@@ -459,9 +459,9 @@ end
             start = len(fish.output)
             fish.send(b'\x00')  # manual toggle
             fish.wait_popup('checkout', start)
-            # Tab selects; Enter accepts without running the command.
+            # Tab selects; Right accepts without running the command.
             fish.send(b'\t')
-            fish.send(b'\r')
+            fish.send(b'\x1b[C')
             fish.assert_buffer('git cherry-pick')
             fish.clear()
             alive = fish.home / 'alive'

@@ -192,9 +192,9 @@ fn run_shell(r: &mut Report, lig: &Path, shell: &str) -> anyhow::Result<()> {
     let shown = t.wait(15_000, |t| t.popup_has("checkout"));
     ok &= r.check(format!("{shell}: popup for `git chec`"), shown, t.cursor_line());
     t.settle(300);
-    t.send("\r");
+    t.send("\x1b[C");
     let accepted = t.wait(5_000, |t| t.cursor_line().ends_with("git checkout"));
-    ok &= r.check(format!("{shell}: Enter accepts `checkout`"), accepted, t.cursor_line());
+    ok &= r.check(format!("{shell}: Right accepts `checkout`"), accepted, t.cursor_line());
     let closed = t.wait(3_000, |t| !t.popup_has("checkout"));
     ok &= r.check(format!("{shell}: popup closes after accepting"), closed, "");
     // Clear the line (Esc in PowerShell and cmd, Ctrl+U in bash).
@@ -206,9 +206,9 @@ fn run_shell(r: &mut Report, lig: &Path, shell: &str) -> anyhow::Result<()> {
     let folder = t.wait(15_000, |t| t.popup_has("alpha"));
     ok &= r.check(format!("{shell}: popup for folders"), folder, t.cursor_line());
     t.settle(300);
-    t.send("\r");
+    t.send("\x1b[C");
     let picked = t.wait(5_000, |t| t.cursor_line().trim_end_matches(['\\', '/']).ends_with("cd alpha"));
-    ok &= r.check(format!("{shell}: Enter picks the folder"), picked, t.cursor_line());
+    ok &= r.check(format!("{shell}: Right picks the folder"), picked, t.cursor_line());
     t.settle(300);
     // The folder's popup offers ↵ Enter first: it runs the line.
     t.send("\r");

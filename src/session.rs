@@ -434,6 +434,7 @@ pub fn run(shell: PathBuf, login: bool) -> Result<i32> {
         shell_asked: None,
         history: cfg.behavior.history.then(crate::history::History::open),
         history_mode: false,
+        history_from_up: false,
         atuin_history: None,
         history_folder: false,
         run_after_insert: None,
@@ -613,6 +614,9 @@ fn enter_action(
     navigated: bool,
     just_accepted: bool,
 ) -> Enter {
+    if mode == "run" && !runs {
+        return Enter::Run;
+    }
     // `always`: Enter on a complete word only closes the popup.
     if mode == "always" && !navigated && complete {
         return if runs { Enter::Run } else { Enter::Close };
@@ -832,6 +836,7 @@ struct Session {
     /// The commands that ran (`behavior.history`), and whether the popup shows them now.
     history: Option<crate::history::History>,
     history_mode: bool,
+    history_from_up: bool,
     /// The Atuin results loaded when Up opened the popup, reused while typing a filter.
     atuin_history: Option<Vec<(u64, String)>>,
     /// The history popup lists only what ran in the shell's folder (`keys.folder_history`).
@@ -1665,7 +1670,7 @@ impl Session {
 
     fn enter_action(&self) -> Enter {
         if self.history_mode {
-            return Enter::Pick;
+            return if self.history_from_up { Enter::PickAndRun } else { Enter::Pick };
         }
         let runs = self.cfg.behavior.enter_runs_commands.contains(&self.items_command);
         enter_action(
@@ -1795,7 +1800,7 @@ impl Session {
             }
             let history_key = matches!(self.bindings.action(&key), Some(Action::History | Action::FolderHistory));
             if history_key && self.history.is_some() && self.can_show() {
-                self.toggle_history(self.bindings.action(&key) == Some(Action::FolderHistory), None);
+                self.toggle_history(self.bindings.action(&key) == Some(Action::FolderHistory), false);
                 redraw = true;
                 continue;
             }
@@ -1809,12 +1814,7 @@ impl Session {
                 && self.unconfirmed().is_empty()
                 && !self.fish_stale()
             {
-                let atuin = if self.cfg.behavior.history_atuin && self.remote.is_none() {
-                    crate::history::atuin(&self.env, self.cfg.behavior.history_success_only)
-                } else {
-                    None
-                };
-                self.toggle_history(false, atuin);
+                self.toggle_history(false, true);
                 redraw = true;
                 if self.history_mode {
                     continue;
@@ -1895,6 +1895,7 @@ impl Session {
                     }
                     redraw = true;
                 }
+                Some(Action::Accept) if key == Key::RIGHT && self.items[self.selected].kind == Kind::Execute => {}
                 Some(Action::Accept | Action::AcceptAndRun) => {
                     self.just_accepted = true;
                     passthrough = true;
@@ -1979,7 +1980,7 @@ impl Session {
         self.can_show()
             && self.pending_enter.is_none()
             && self.bindings.action(&Key::ENTER) == Some(Action::Accept)
-            && self.cfg.behavior.enter_accepts != "never"
+            && (self.cfg.behavior.enter_accepts != "never" || (self.history_mode && self.history_from_up))
     }
 
     /// A held Enter may go on: the shell reported the line typed before it, or hides the popup.
@@ -2002,7 +2003,7 @@ impl Session {
     fn enter_should_wait(&self) -> bool {
         self.pending_enter.is_none()
             && self.bindings.action(&Key::ENTER) == Some(Action::Accept)
-            && self.cfg.behavior.enter_accepts != "never"
+            && (self.cfg.behavior.enter_accepts != "never" || (self.history_mode && self.history_from_up))
             && !self.just_accepted
             && self.editing
             && !self.hidden
@@ -2066,9 +2067,14 @@ impl Session {
 
     /// Show the commands that ran before, or leave them for the usual suggestions.
     /// Open the history (all of it, or this folder's), switch between the two, or close it.
-    fn toggle_history(&mut self, folder: bool, atuin: Option<Vec<(u64, String)>>) {
-        self.history_mode = !(self.history_mode && self.history_folder == folder && self.atuin_history.is_none());
-        self.atuin_history = atuin;
+    fn toggle_history(&mut self, folder: bool, from_up: bool) {
+        self.history_mode = !(self.history_mode && self.history_folder == folder && self.history_from_up == from_up);
+        self.history_from_up = from_up;
+        self.atuin_history = if from_up && self.cfg.behavior.history_atuin && self.remote.is_none() {
+            crate::history::atuin(&self.env, self.cfg.behavior.history_success_only)
+        } else {
+            None
+        };
         self.history_folder = folder;
         self.manual = self.history_mode;
         self.shell_nav = false;
@@ -2190,6 +2196,7 @@ impl Session {
 
     /// Insert the selected suggestion; with `run`, run the line after it (`enter_runs_commands`).
     fn accept_selected(&mut self, fwd: &mut Vec<u8>, run: bool) {
+        let from_up = self.history_mode && self.history_from_up;
         self.history_mode = false;
         let s = &self.items[self.selected];
         if s.kind == Kind::Execute {
@@ -2205,10 +2212,8 @@ impl Session {
             let result = format!("{kept}{}", s.insert);
             self.close_after_insert =
                 !(result.is_empty() || result.ends_with(|c: char| c.is_whitespace() || crate::engine::is_sep(c)));
-            // Fish (and PowerShell, and a host's shells that are asked) may turn the insertion down,
-            // and an Enter queued behind it would run the half-typed line: there the Enter waits
-            // for the line the insertion makes.
-            let confirm = run && self.fish_shell;
+            // Shells that can reject a stale insertion report the resulting line before Enter.
+            let confirm = run && (self.fish_shell || (from_up && self.zsh_shell));
             if confirm {
                 let left = result.chars().count().saturating_sub(s.back);
                 self.run_after_insert = Some(result.chars().take(left).collect());

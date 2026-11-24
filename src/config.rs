@@ -205,10 +205,10 @@ pub struct Behavior {
     /// (`gco` → `git-checkout`, `top` → `btop`).
     pub fuzzy: bool,
     /// When Enter picks the selected suggestion instead of running the line:
-    /// `"auto"` (unless the typed word is already complete), `"after-space"` (only
-    /// after a space), `"always"` (while the popup is open) or `"never"`. A selection
-    /// moved with Tab/arrows is always picked; except with `"always"`, the Enter right
-    /// after a pick runs the line.
+    /// `"run"` runs the typed line, with exceptions in `enter_runs_commands`.
+    /// `"never"` always runs the typed line, `"auto"` picks unless the word is complete,
+    /// `"after-space"` picks after a space, and `"always"` picks while the popup is open.
+    /// In the Up-arrow history dropdown, Enter runs the highlighted command.
     pub enter_accepts: String,
     /// Commands where an Enter that picks a suggestion (as `enter_accepts` decides) also runs
     /// the line, so one press does both: for commands whose argument is the whole point, like
@@ -292,7 +292,7 @@ impl Default for Keys {
     fn default() -> Self {
         let v = |a: &[&str]| a.iter().map(|s| s.to_string()).collect();
         Keys {
-            accept: v(&["enter"]),
+            accept: v(&["enter", "right"]),
             next: v(&["tab", "down", "ctrl-n"]),
             prev: v(&["shift-tab", "up", "ctrl-p"]),
             dismiss: v(&["esc"]),
@@ -326,7 +326,7 @@ impl Default for Behavior {
     fn default() -> Self {
         Behavior {
             fuzzy: true,
-            enter_accepts: "auto".into(),
+            enter_accepts: "run".into(),
             enter_runs_commands: vec![],
             insert_space: false,
             files_first: false,

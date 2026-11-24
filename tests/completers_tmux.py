@@ -87,14 +87,14 @@ class CompletersTmux(unittest.TestCase):
         self.tmux('send-keys', '-t', 'test:0.0', '-l', 'setopt auto_c')
         self.wait("no setopt options from zsh", lambda s: 'auto_cd' in self.popup(s) and 'auto_continue' in self.popup(s))
         self.assertEqual(self.prompt(self.screen()), 'comp> setopt auto_c', 'asking zsh changed the line')
-        self.tmux('send-keys', '-t', 'test:0.0', 'Enter')
+        self.tmux('send-keys', '-t', 'test:0.0', 'Right')
         self.wait('auto_cd not inserted', lambda s: self.prompt(s) == 'comp> setopt auto_cd')
 
     def test_fish_offers_what_its_tab_would(self):
         self.start('fish')
         self.tmux('send-keys', '-t', 'test:0.0', '-l', 'string esc')
         self.wait("no string subcommands from fish", lambda s: 'escape' in self.popup(s))
-        self.tmux('send-keys', '-t', 'test:0.0', 'Enter')
+        self.tmux('send-keys', '-t', 'test:0.0', 'Right')
         self.wait('escape not inserted', lambda s: self.prompt(s) == 'comp> string escape')
 
     def test_bash_offers_what_its_tab_would(self):
@@ -102,7 +102,7 @@ class CompletersTmux(unittest.TestCase):
         self.tmux('send-keys', '-t', 'test:0.0', '-l', 'ligwords b')
         self.wait("no words from bash's complete -W", lambda s: 'beta' in self.popup(s) and 'alpha' not in self.popup(s))
         self.assertEqual(self.prompt(self.screen()), 'comp> ligwords b', 'asking bash changed the line')
-        self.tmux('send-keys', '-t', 'test:0.0', 'Enter')
+        self.tmux('send-keys', '-t', 'test:0.0', 'Right')
         self.wait('beta not inserted', lambda s: self.prompt(s) == 'comp> ligwords beta')
 
     @unittest.skipUnless(os.path.exists(BASH_COMPLETION) and shutil.which('timedatectl'), 'bash-completion and timedatectl')
@@ -123,7 +123,7 @@ class CompletersTmux(unittest.TestCase):
         self.wait('no subcommands from argc', lambda s: 'Deploy the app' in self.popup(s) and 'logs' in self.popup(s))
         self.tmux('send-keys', '-t', 'test:0.0', '-l', 'deploy p')
         self.wait('no values from argc', lambda s: 'production' in self.popup(s) and 'staging' not in self.popup(s))
-        self.tmux('send-keys', '-t', 'test:0.0', 'Enter')
+        self.tmux('send-keys', '-t', 'test:0.0', 'Right')
         self.wait('production not inserted', lambda s: self.prompt(s) == 'comp> ligdeploy deploy production')
 
     def test_off_by_default(self):

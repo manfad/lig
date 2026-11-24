@@ -64,7 +64,7 @@ class NuTmux(unittest.TestCase):
     def test_external_command_completes_and_inserts(self):
         self.type('git ch')
         self.wait('no git popup', lambda s: 'checkout' in s)
-        self.tmux('send-keys', '-t', 'test:0.0', 'Enter')
+        self.tmux('send-keys', '-t', 'test:0.0', 'Right')
         self.wait('checkout not inserted', lambda s: self.prompt_line().rstrip().endswith('git checkout'))
         self.assertNotIn('Error', self.screen())
 
@@ -80,7 +80,7 @@ class NuTmux(unittest.TestCase):
     def test_cd_runs_and_lig_follows(self):
         self.type('cd sr')
         self.wait('no folder popup', lambda s: 'src/' in s)
-        self.tmux('send-keys', '-t', 'test:0.0', 'Enter')
+        self.tmux('send-keys', '-t', 'test:0.0', 'Right')
         self.wait('src/ not inserted', lambda s: self.prompt_line().rstrip().endswith('cd src/'))
         self.tmux('send-keys', '-t', 'test:0.0', 'Enter')
         self.type('open main')

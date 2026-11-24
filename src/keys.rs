@@ -45,6 +45,7 @@ impl Key {
     pub const SHIFT_TAB: Key = Key { code: Code::Tab, ctrl: false, alt: false, shift: true };
     pub const UP: Key = Key::plain(Code::Up);
     pub const DOWN: Key = Key::plain(Code::Down);
+    pub const RIGHT: Key = Key::plain(Code::Right);
 
     pub const fn ctrl(c: char) -> Key {
         Key { code: Code::Char(c), ctrl: true, alt: false, shift: false }

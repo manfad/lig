@@ -375,8 +375,9 @@ pub fn render(ui: &Ui, l: &Layout, items: &[Suggestion], selected: usize, scroll
     }
     if let Some(bd) = st.border {
         // Left out when it doesn't fit between the corners and one `─`.
-        let counter = Some(format!(" {}/{} ", selected + 1, n))
-            .filter(|c| n > h && selected < n && c.width() + 3 <= w)
+        let counter = (n > h && selected < n)
+            .then(|| format!(" {}/{} ", selected + 1, n))
+            .filter(|c| c.width() + 3 <= w)
             .unwrap_or_default();
         let fill = w.saturating_sub(2 + counter.width() + usize::from(!counter.is_empty()));
         let tail =

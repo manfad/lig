@@ -97,8 +97,13 @@ class HistoryTmux(unittest.TestCase):
 
     def run_line(self, line):
         # One write: with Enter sent apart, the popup could open first and take it.
+        def prompts(screen):
+            return sum(row.startswith('hist-test') for row in screen.splitlines())
+
+        before = prompts(self.screen())
         self.tmux('send-keys', '-t', 'test:0.0', '-l', f'{line}\r')
-        self.wait(f'{line!r} did not finish', lambda s: s.rstrip().splitlines()[-1].startswith('hist-test'))
+        self.wait(f'{line!r} did not finish',
+                  lambda s: prompts(s) > before and s.rstrip().splitlines()[-1].startswith('hist-test'))
 
     def check_history(self, kind, success_only=False):
         self.start(kind, '[behavior]\nhistory_success_only = true\n' if success_only else '')
@@ -160,9 +165,9 @@ class HistoryTmux(unittest.TestCase):
 
     def check_up_atuin(self, kind):
         self.start(kind, atuin_history=(
-            ': 1700000001:0;printf atuin-older\n'
-            ': 1700000002:0;printf atuin-newer\n'
-            ': 1700000003:0;printf unrelated-history\n'
+            ': 1700000001:0;echo atuin-older\n'
+            ': 1700000002:0;echo atuin-newer\n'
+            ': 1700000003:0;echo unrelated-history\n'
         ))
         self.tmux('send-keys', '-t', 'test:0.0', 'Up')
         self.wait('no Atuin popup', lambda s: 'atuin-older' in s and 'atuin-newer' in s)
@@ -171,10 +176,17 @@ class HistoryTmux(unittest.TestCase):
         self.assertLess(screen.index('atuin-newer'), screen.index('atuin-older'))
         self.assertIn('unrelated-history', screen)
         self.tmux('send-keys', '-t', 'test:0.0', '-l', 'atuin-')
-        self.wait('Atuin popup did not filter', lambda s: 'printf atuin-older' in s and 'unrelated-history' not in s)
+        self.wait('Atuin popup did not filter', lambda s: 'echo atuin-older' in s and 'unrelated-history' not in s)
+        self.tmux('send-keys', '-t', 'test:0.0', 'Down', 'Right')
+        self.wait('Right did not insert the selection', lambda s: 'hist-test> echo atuin-older' in s and '↺' not in s)
+        self.assertNotIn('\natuin-older\n', self.screen())
+
+        self.tmux('send-keys', '-t', 'test:0.0', 'C-c')
+        self.wait('prompt did not clear', lambda s: s.rstrip().endswith('hist-test>'))
+        self.tmux('send-keys', '-t', 'test:0.0', 'Up')
+        self.wait('history did not reopen', lambda s: '↺' in s and 'unrelated-history' in s)
         self.tmux('send-keys', '-t', 'test:0.0', 'Down', 'Enter')
-        self.wait('history selection was not inserted', lambda s: 'hist-test> printf atuin-older' in s and '↺' not in s)
-        self.assertNotIn('\natuin-older', self.screen())
+        self.wait('Enter did not run the selected command', lambda s: '\natuin-newer\n' in s and '↺' not in s)
 
     def test_zsh_up_uses_atuin(self):
         self.check_up_atuin('zsh')

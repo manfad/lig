@@ -132,12 +132,21 @@ impl History {
 }
 
 /// Read a bounded, newest-first snapshot for the Up popup. NUL framing preserves multiline commands.
-pub fn atuin(env: &crate::engine::ShellEnv, success_only: bool) -> Option<Vec<(u64, String)>> {
-    let mut args: Vec<String> =
-        ["atuin", "search", "--filter-mode", "global", "--limit", "500", "--cmd-only", "--print0"]
-            .into_iter()
-            .map(String::from)
-            .collect();
+pub fn atuin(env: &crate::engine::ShellEnv, success_only: bool) -> Option<Vec<(String, String)>> {
+    let mut args: Vec<String> = [
+        "atuin",
+        "search",
+        "--filter-mode",
+        "global",
+        "--limit",
+        "500",
+        "--format",
+        "{relativetime} ago\t{command}",
+        "--print0",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
     if success_only {
         args.extend(["--exit".into(), "0".into()]);
     }
@@ -158,8 +167,9 @@ pub fn atuin(env: &crate::engine::ShellEnv, success_only: bool) -> Option<Vec<(u
         .split_terminator('\0')
         // Atuin selects the newest matches but prints them oldest first.
         .rev()
-        .filter(|command| !command.is_empty() && seen.insert(*command))
-        .map(|command| (0, command.to_owned()))
+        .filter_map(|entry| entry.split_once('\t'))
+        .filter(|(_, command)| !command.is_empty() && seen.insert(*command))
+        .map(|(when, command)| (when.to_owned(), command.to_owned()))
         .collect();
     (!entries.is_empty()).then_some(entries)
 }
@@ -214,9 +224,9 @@ impl HostHistory {
 
 /// The commands in `entries` (newest first) matching `query`, newest first: those starting
 /// with it, then those containing it, then (with `fuzzy`) those with its letters in order.
-pub(crate) fn matching(entries: &[(u64, String)], query: &str, fuzzy: bool) -> Vec<(u64, String)> {
+pub(crate) fn matching<T: Clone>(entries: &[(T, String)], query: &str, fuzzy: bool) -> Vec<(T, String)> {
     let query = query.trim_start().to_lowercase();
-    let mut tiers: [Vec<(u64, String)>; 3] = Default::default();
+    let mut tiers: [Vec<(T, String)>; 3] = Default::default();
     for (time, command) in entries {
         let lower = command.to_lowercase();
         let tier = if lower.starts_with(&query) {
@@ -228,7 +238,7 @@ pub(crate) fn matching(entries: &[(u64, String)], query: &str, fuzzy: bool) -> V
         } else {
             continue;
         };
-        tiers[tier].push((*time, command.clone()));
+        tiers[tier].push((time.clone(), command.clone()));
     }
     tiers.into_iter().flatten().collect()
 }

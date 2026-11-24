@@ -175,6 +175,11 @@ class HistoryTmux(unittest.TestCase):
         self.assertNotIn('imported-from-zsh', screen)
         self.assertLess(screen.index('atuin-newer'), screen.index('atuin-older'))
         self.assertIn('unrelated-history', screen)
+        rows = [line for line in screen.splitlines() if '↺' in line and 'echo ' in line]
+        self.assertEqual(len(rows), 3)
+        for row in rows:
+            self.assertRegex(row, r'\s+\d+\w+ ago\s*[│┃]')
+        self.assertEqual(len({row.index(' ago') for row in rows}), 1)
         self.tmux('send-keys', '-t', 'test:0.0', '-l', 'atuin-')
         self.wait('Atuin popup did not filter', lambda s: 'echo atuin-older' in s and 'unrelated-history' not in s)
         self.tmux('send-keys', '-t', 'test:0.0', 'Down', 'Right')

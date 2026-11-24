@@ -838,7 +838,7 @@ struct Session {
     history_mode: bool,
     history_from_up: bool,
     /// The Atuin results loaded when Up opened the popup, reused while typing a filter.
-    atuin_history: Option<Vec<(u64, String)>>,
+    atuin_history: Option<Vec<(String, String)>>,
     /// The history popup lists only what ran in the shell's folder (`keys.folder_history`).
     history_folder: bool,
     /// An accept-and-run waits for the shell to show this line (left of the cursor) before
@@ -2128,30 +2128,36 @@ impl Session {
         let dir = self.history_folder.then(|| self.env.cwd.to_string_lossy().into_owned());
         let Some(history) = self.history.as_mut() else { return };
         // On a `lig ssh` host, its history: what ran there now, then its shells' files.
-        let found = match &mut self.remote {
-            Some(r) => {
-                let fetch = !std::mem::replace(&mut r.history.asked, true);
-                let found = r.history.search(&self.line, fuzzy, dir.as_deref());
-                if fetch {
-                    self.fetch_host_history();
+        let found = if let Some(entries) = &self.atuin_history {
+            crate::history::matching(entries, &self.line, fuzzy)
+        } else {
+            let runs = match &mut self.remote {
+                Some(r) => {
+                    let fetch = !std::mem::replace(&mut r.history.asked, true);
+                    let found = r.history.search(&self.line, fuzzy, dir.as_deref());
+                    if fetch {
+                        self.fetch_host_history();
+                    }
+                    found
                 }
-                found
-            }
-            None => match &self.atuin_history {
-                Some(entries) => crate::history::matching(entries, &self.line, fuzzy),
                 None => history.search(&self.line, fuzzy, dir.as_deref()),
-            },
+            };
+            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+            runs.into_iter()
+                .map(|(time, command)| {
+                    let when = if time == 0 { String::new() } else { ago(now.saturating_sub(time)) };
+                    (when, command)
+                })
+                .collect()
         };
-        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
         let delete = self.line.chars().count();
         let local = self.history_folder;
         let items = found
             .into_iter()
             .take(500)
-            .map(|(time, command)| Suggestion {
+            .map(|(when, command)| Suggestion {
                 label: command.replace('\n', " ⏎ "),
                 description: {
-                    let when = if time == 0 { String::new() } else { ago(now.saturating_sub(time)) };
                     // Alt+R's list says it's this folder's.
                     match (local, when.is_empty()) {
                         (false, _) => when,

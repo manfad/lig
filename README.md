@@ -47,7 +47,7 @@ itself.
 Press **Up** at an empty prompt inside Lig to browse recent Atuin history in Lig's inline
 popup. Type to filter, use **Up** and **Down** to move, and press **Right** to put the
 selection on the prompt for editing. **Enter** runs the highlighted command and
-**Esc** closes the popup.
+**Esc** closes the popup. The right column shows how long ago each command ran.
 
 Install this branch with `cargo install --path . --locked`, then run `lig install zsh`
 or `lig install bash` and open a new session. Bash requires version 4.4 or newer.

@@ -346,11 +346,15 @@ pub fn render(ui: &Ui, l: &Layout, items: &[Suggestion], selected: usize, scroll
                     }
                 }
                 if l.desc_w > 0 {
-                    line.push_str(&format!(
-                        "{}\x1b[{dfg}m{}\x1b[{fg}m",
-                        " ".repeat(st.gap as usize),
-                        fit(&s.description, l.desc_w as usize)
-                    ));
+                    let width = usize::from(l.desc_w);
+                    let description = fit(&s.description, width);
+                    let description = if s.icon == Some(crate::spec::Icon::History) {
+                        let text = description.trim_end();
+                        format!("{}{text}", " ".repeat(width.saturating_sub(text.width())))
+                    } else {
+                        description
+                    };
+                    line.push_str(&format!("{}\x1b[{dfg}m{description}\x1b[{fg}m", " ".repeat(st.gap as usize)));
                 }
             }
             None => {
